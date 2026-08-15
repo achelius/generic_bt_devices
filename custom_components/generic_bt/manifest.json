@@ -1,12 +1,16 @@
 {
   "domain": "generic_bt",
   "name": "Generic Bluetooth",
-  "codeowners": ["@fuatakgun"],
+  "codeowners": [
+    "@fuatakgun"
+  ],
   "config_flow": true,
-  "dependencies": ["bluetooth_adapters"],
+  "dependencies": [
+    "bluetooth_adapters"
+  ],
   "iot_class": "local_push",
   "integration_type": "hub",
-  "version": "1.0.0",
-  "documentation": "https://github.com/fuatakgun/generic_bt",
-  "issue_tracker": "https://github.com/fuatakgun/generic_bt/issues"
+  "version": "1.0.1",
+  "documentation": "https://github.com/achelius/generic_bt_devices.git",
+  "issue_tracker": "https://github.com/achelius/generic_bt_devices/issues"
 }
