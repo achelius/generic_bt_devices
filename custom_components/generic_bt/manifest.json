@@ -10,7 +10,7 @@
   ],
   "iot_class": "local_push",
   "integration_type": "hub",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "documentation": "https://github.com/achelius/generic_bt_devices.git",
   "issue_tracker": "https://github.com/achelius/generic_bt_devices/issues"
 }
