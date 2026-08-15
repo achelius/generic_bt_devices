@@ -18,6 +18,11 @@ from .generic_bt_api.device import GenericBTDevice
 
 _LOGGER = logging.getLogger(__name__)
 
+CONF_ADD_ENTITY = "add_entity"
+CONF_ACTION = "action"
+CONF_ENTITY_INDEX = "entity_index"
+
+
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Generic BT."""
 
@@ -36,9 +41,6 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_bluetooth(self, discovery_info: BluetoothServiceInfoBleak) -> FlowResult:
         """Handle the bluetooth discovery step."""
-        #if discovery_info.name.startswith(UNSUPPORTED_SUB_MODEL):
-        #    return self.async_abort(reason="not_supported")
-
         await self.async_set_unique_id(discovery_info.address)
         self._abort_if_unique_id_configured()
         self._discovery_info = discovery_info
@@ -52,7 +54,6 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             address = user_input[CONF_ADDRESS]
             discovery_info = self._discovered_devices[address]
-            local_name = discovery_info.name
             await self.async_set_unique_id(discovery_info.address, raise_on_progress=False)
             self._abort_if_unique_id_configured()
             device = GenericBTDevice(discovery_info.device)
@@ -64,7 +65,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             else:
                 await device.stop()
                 self._selected_address = address
-                return await self.async_step_add_characteristic()
+                return await self.async_step_add_entity_confirm()
 
         if discovery := self._discovery_info:
             self._discovered_devices[discovery.address] = discovery
@@ -93,8 +94,35 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
         return self.async_show_form(step_id="user", data_schema=data_schema, errors=errors)
 
-    async def async_step_add_characteristic(self, user_input: dict[str, Any] | None = None) -> FlowResult:
-        """Handle adding a characteristic reader to the device."""
+    async def async_step_add_entity_confirm(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        """Ask user if they want to add an entity."""
+        if user_input is not None:
+            if user_input.get(CONF_ADD_ENTITY):
+                return await self.async_step_add_entity()
+            else:
+                # Create entry without any entities
+                discovery_info = self._discovered_devices[self._selected_address]
+                return self.async_create_entry(
+                    title=discovery_info.name,
+                    data={CONF_ADDRESS: self._selected_address},
+                    options={CONF_CHARACTERISTIC_READERS: []}
+                )
+
+        discovery_info = self._discovered_devices[self._selected_address]
+        data_schema = vol.Schema(
+            {
+                vol.Required(CONF_ADD_ENTITY, default=True): cv.boolean,
+            }
+        )
+        
+        return self.async_show_form(
+            step_id="add_entity_confirm",
+            data_schema=data_schema,
+            description_placeholders={"device": discovery_info.name}
+        )
+
+    async def async_step_add_entity(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        """Handle adding an entity to the device."""
         if user_input is not None:
             discovery_info = self._discovered_devices[self._selected_address]
             local_name = discovery_info.name
@@ -118,7 +146,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
         
         return self.async_show_form(
-            step_id="add_characteristic",
+            step_id="add_entity",
             data_schema=data_schema,
             description_placeholders={"device": self._discovered_devices[self._selected_address].name}
         )
@@ -130,22 +158,143 @@ class OptionsFlow(config_entries.OptionsFlow):
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         """Initialize options flow."""
         self.config_entry = config_entry
+        self._selected_entity_index: int | None = None
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Handle the initial options step."""
         if user_input is not None:
-            characteristics: list[dict[str, str]] = []
+            action = user_input.get(CONF_ACTION)
             
-            # Add new characteristic if provided
-            if user_input.get(CONF_CHARACTERISTIC_NAME) and user_input.get(CONF_TARGET_UUID):
-                characteristics.append({
+            if action == "add":
+                return await self.async_step_add_entity()
+            elif action == "edit":
+                return await self.async_step_select_entity_edit()
+            elif action == "delete":
+                return await self.async_step_select_entity_delete()
+
+        current_characteristics = self.config_entry.options.get(CONF_CHARACTERISTIC_READERS, [])
+        
+        # Build list of existing entities for display
+        char_list = "\n".join(
+            f"- {char.get(CONF_CHARACTERISTIC_NAME)}: {char.get(CONF_TARGET_UUID)}"
+            for char in current_characteristics
+        ) if current_characteristics else "No entities configured"
+
+        actions = ["add"]
+        if current_characteristics:
+            actions.extend(["edit", "delete"])
+
+        data_schema = vol.Schema(
+            {
+                vol.Required(CONF_ACTION): vol.In(actions),
+            }
+        )
+        
+        return self.async_show_form(
+            step_id="init",
+            data_schema=data_schema,
+            description_placeholders={"entities": char_list}
+        )
+
+    async def async_step_add_entity(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        """Handle adding a new entity."""
+        if user_input is not None:
+            characteristics = list(self.config_entry.options.get(CONF_CHARACTERISTIC_READERS, []))
+            
+            characteristics.append({
+                CONF_CHARACTERISTIC_NAME: user_input[CONF_CHARACTERISTIC_NAME],
+                CONF_TARGET_UUID: user_input[CONF_TARGET_UUID]
+            })
+            
+            return self.async_create_entry(
+                title="",
+                data={CONF_CHARACTERISTIC_READERS: characteristics}
+            )
+
+        data_schema = vol.Schema(
+            {
+                vol.Required(CONF_CHARACTERISTIC_NAME): cv.string,
+                vol.Required(CONF_TARGET_UUID): cv.string,
+            }
+        )
+        
+        return self.async_show_form(
+            step_id="add_entity",
+            data_schema=data_schema
+        )
+
+    async def async_step_select_entity_edit(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        """Handle selecting an entity to edit."""
+        if user_input is not None:
+            self._selected_entity_index = user_input.get(CONF_ENTITY_INDEX)
+            return await self.async_step_edit_entity()
+
+        current_characteristics = self.config_entry.options.get(CONF_CHARACTERISTIC_READERS, [])
+        
+        data_schema = vol.Schema(
+            {
+                vol.Required(CONF_ENTITY_INDEX): vol.In(
+                    {
+                        str(i): f"{char.get(CONF_CHARACTERISTIC_NAME)} ({char.get(CONF_TARGET_UUID)})"
+                        for i, char in enumerate(current_characteristics)
+                    }
+                ),
+            }
+        )
+        
+        return self.async_show_form(
+            step_id="select_entity_edit",
+            data_schema=data_schema
+        )
+
+    async def async_step_edit_entity(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        """Handle editing an entity."""
+        if user_input is not None:
+            characteristics = list(self.config_entry.options.get(CONF_CHARACTERISTIC_READERS, []))
+            
+            index = self._selected_entity_index
+            if index is not None and 0 <= index < len(characteristics):
+                characteristics[index] = {
                     CONF_CHARACTERISTIC_NAME: user_input[CONF_CHARACTERISTIC_NAME],
                     CONF_TARGET_UUID: user_input[CONF_TARGET_UUID]
-                })
+                }
             
-            # Keep existing characteristics
-            existing = self.config_entry.options.get(CONF_CHARACTERISTIC_READERS, [])
-            characteristics.extend(existing)
+            return self.async_create_entry(
+                title="",
+                data={CONF_CHARACTERISTIC_READERS: characteristics}
+            )
+
+        characteristics = self.config_entry.options.get(CONF_CHARACTERISTIC_READERS, [])
+        index = self._selected_entity_index
+        
+        if index is not None and 0 <= index < len(characteristics):
+            current = characteristics[index]
+            current_name = current.get(CONF_CHARACTERISTIC_NAME, "")
+            current_uuid = current.get(CONF_TARGET_UUID, "")
+        else:
+            current_name = ""
+            current_uuid = ""
+
+        data_schema = vol.Schema(
+            {
+                vol.Required(CONF_CHARACTERISTIC_NAME, default=current_name): cv.string,
+                vol.Required(CONF_TARGET_UUID, default=current_uuid): cv.string,
+            }
+        )
+        
+        return self.async_show_form(
+            step_id="edit_entity",
+            data_schema=data_schema
+        )
+
+    async def async_step_select_entity_delete(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        """Handle selecting an entity to delete."""
+        if user_input is not None:
+            index = int(user_input.get(CONF_ENTITY_INDEX, -1))
+            characteristics = list(self.config_entry.options.get(CONF_CHARACTERISTIC_READERS, []))
+            
+            if 0 <= index < len(characteristics):
+                characteristics.pop(index)
             
             return self.async_create_entry(
                 title="",
@@ -153,20 +302,20 @@ class OptionsFlow(config_entries.OptionsFlow):
             )
 
         current_characteristics = self.config_entry.options.get(CONF_CHARACTERISTIC_READERS, [])
-        char_list = "\n".join(
-            f"- {char.get(CONF_CHARACTERISTIC_NAME)}: {char.get(CONF_TARGET_UUID)}"
-            for char in current_characteristics
-        ) if current_characteristics else "No characteristics configured"
-
+        
         data_schema = vol.Schema(
             {
-                vol.Optional(CONF_CHARACTERISTIC_NAME): cv.string,
-                vol.Optional(CONF_TARGET_UUID): cv.string,
+                vol.Required(CONF_ENTITY_INDEX): vol.In(
+                    {
+                        str(i): f"{char.get(CONF_CHARACTERISTIC_NAME)} ({char.get(CONF_TARGET_UUID)})"
+                        for i, char in enumerate(current_characteristics)
+                    }
+                ),
             }
         )
-
+        
         return self.async_show_form(
-            step_id="init",
+            step_id="select_entity_delete",
             data_schema=data_schema,
-            description_placeholders={"characteristics": char_list}
+            description_placeholders={"warning": "⚠️ This action cannot be undone"}
         )

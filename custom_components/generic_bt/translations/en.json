@@ -5,9 +5,13 @@
         "title": "Select Bluetooth Device",
         "description": "Select the Bluetooth device you want to add"
       },
-      "add_characteristic": {
-        "title": "Add Characteristic Reader",
-        "description": "Configure a characteristic reader for {device}.\n\nEnter the name for this characteristic and its UUID."
+      "add_entity_confirm": {
+        "title": "Add Entity",
+        "description": "Do you want to add an entity to read values from {device}?"
+      },
+      "add_entity": {
+        "title": "Configure Entity",
+        "description": "Configure a characteristic reader for {device}.\n\nEnter the entity name and target characteristic UUID."
       }
     },
     "error": {
@@ -21,10 +25,33 @@
   "options": {
     "step": {
       "init": {
-        "title": "Configure Characteristic Readers",
-        "description": "Current characteristics:\n{characteristics}\n\nAdd a new characteristic below (optional):"
+        "title": "Manage Entities",
+        "description": "Current entities:\n{entities}\n\nWhat would you like to do?",
+        "data": {
+          "action": "Action"
+        },
+        "data_description": {
+          "action": "Select 'Add' to create a new entity, 'Edit' to modify an existing one, or 'Delete' to remove one"
+        }
+      },
+      "add_entity": {
+        "title": "Add New Entity",
+        "description": "Configure a new characteristic reader.\n\nEnter the entity name and target characteristic UUID."
+      },
+      "select_entity_edit": {
+        "title": "Select Entity to Edit",
+        "description": "Choose which entity you want to edit"
+      },
+      "edit_entity": {
+        "title": "Edit Entity",
+        "description": "Update the entity name and/or UUID"
+      },
+      "select_entity_delete": {
+        "title": "Select Entity to Delete",
+        "description": "{warning}\n\nChoose which entity you want to delete"
       }
     }
   }
 }
+
 
