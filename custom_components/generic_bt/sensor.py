@@ -34,8 +34,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             )
         )
     
-    if entities:
-        async_add_entities(entities)
+    # Always call async_add_entities, even if empty, to signal platform setup is complete
+    async_add_entities(entities)
 
 
 class GenericBTCharacteristicSensor(GenericBTEntity, SensorEntity):
