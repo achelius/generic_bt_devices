@@ -7,6 +7,7 @@ from contextlib import AsyncExitStack
 
 from bleak import BleakClient
 from bleak.exc import BleakError
+from bleak_retry_connector import establish_connection
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -34,13 +35,18 @@ class GenericBTDevice:
         return self._client is not None
 
     async def get_client(self):
-        """Get or create a BleakClient connection."""
+        """Get or create a BleakClient connection using retry connector."""
         async with self._lock:
             if not self._client:
-                _LOGGER.debug("Connecting to device")
+                _LOGGER.debug("Connecting to device with retry connector")
                 try:
                     self._client = await self._client_stack.enter_async_context(
-                        BleakClient(self._ble_device, timeout=30)
+                        establish_connection(
+                            BleakClient,
+                            device=self._ble_device,
+                            name=self._ble_device.name,
+                            timeout=30
+                        )
                     )
                     _LOGGER.debug("Successfully connected to device")
                 except asyncio.TimeoutError as exc:

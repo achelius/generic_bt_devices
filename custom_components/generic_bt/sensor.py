@@ -22,9 +22,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     """Set up Generic BT sensor based on a config entry."""
     coordinator: GenericBTCoordinator = hass.data[DOMAIN][entry.entry_id]
     
-    # Trigger initial update to read characteristic values
-    await coordinator.async_request_refresh()
-    
     entities = []
     characteristics = entry.options.get(CONF_CHARACTERISTIC_READERS, [])
     
