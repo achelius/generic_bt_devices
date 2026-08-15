@@ -20,45 +20,66 @@ class GenericBTDevice:
         self._lock = asyncio.Lock()
 
     async def update(self):
+        """Update device state."""
         pass
 
     async def stop(self):
-            pass
+        """Stop the device connection."""
+        await self._client_stack.aclose()
+        self._client = None
 
     @property
     def connected(self):
-        return not self._client is None
+        """Check if device is connected."""
+        return self._client is not None
 
     async def get_client(self):
+        """Get or create a BleakClient connection."""
         async with self._lock:
             if not self._client:
-                _LOGGER.debug("Connecting")
+                _LOGGER.debug("Connecting to device")
                 try:
-                    self._client = await self._client_stack.enter_async_context(BleakClient(self._ble_device, timeout=30))
+                    self._client = await self._client_stack.enter_async_context(
+                        BleakClient(self._ble_device, timeout=30)
+                    )
+                    _LOGGER.debug("Successfully connected to device")
                 except asyncio.TimeoutError as exc:
-                    _LOGGER.debug("Timeout on connect", exc_info=True)
-                    raise IdealLedTimeout("Timeout on connect") from exc
+                    _LOGGER.debug("Timeout connecting to device", exc_info=True)
+                    raise exc
                 except BleakError as exc:
-                    _LOGGER.debug("Error on connect", exc_info=True)
-                    raise IdealLedBleakError("Error on connect") from exc
+                    _LOGGER.debug("Error connecting to device", exc_info=True)
+                    raise exc
             else:
                 _LOGGER.debug("Connection reused")
             return self._client
 
+    def _parse_uuid(self, target_uuid: str) -> UUID:
+        """Parse UUID string (handles both full and short UUIDs)."""
+        # Remove curly braces if present
+        uuid_str = target_uuid.strip("{}")
+        
+        # If it's a short UUID (4 hex chars), expand it to full format
+        if len(uuid_str) == 4:
+            uuid_str = f"0000{uuid_str}-0000-1000-8000-00805f9b34fb"
+        
+        return UUID(uuid_str)
+
     async def write_gatt(self, target_uuid, data):
-        await self.get_client()
-        uuid_str = "{" + target_uuid + "}"
-        uuid = UUID(uuid_str)
+        """Write data to a GATT characteristic."""
+        client = await self.get_client()
+        uuid = self._parse_uuid(target_uuid)
         data_as_bytes = bytearray.fromhex(data)
-        await self._client.write_gatt_char(uuid, data_as_bytes, True)
+        await client.write_gatt_char(uuid, data_as_bytes, True)
+        _LOGGER.debug(f"Wrote to {target_uuid}: {data}")
 
     async def read_gatt(self, target_uuid):
-        await self.get_client()
-        uuid_str = "{" + target_uuid + "}"
-        uuid = UUID(uuid_str)
-        data = await self._client.read_gatt_char(uuid)
-        print(data)
+        """Read data from a GATT characteristic."""
+        client = await self.get_client()
+        uuid = self._parse_uuid(target_uuid)
+        data = await client.read_gatt_char(uuid)
+        _LOGGER.debug(f"Read from {target_uuid}: {data.hex() if data else None}")
         return data
 
     def update_from_advertisement(self, advertisement):
+        """Update device info from BLE advertisement."""
         pass

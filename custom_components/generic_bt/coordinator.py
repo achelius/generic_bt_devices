@@ -34,9 +34,10 @@ class GenericBTCoordinator(ActiveBluetoothDataUpdateCoordinator[None]):
     @callback
     def _needs_poll(self, service_info: bluetooth.BluetoothServiceInfoBleak, seconds_since_last_poll: float | None) -> bool:
         """Return whether polling is needed."""
-        # Poll if device is connected and has characteristics to read
+        # Poll if there are characteristics configured
+        # Connection will be established during the read
         characteristics = self._get_characteristics()
-        return bool(characteristics) and self.device.connected
+        return bool(characteristics)
 
     def _get_characteristics(self) -> list[dict]:
         """Get the list of characteristics to read from config entry."""
@@ -46,25 +47,39 @@ class GenericBTCoordinator(ActiveBluetoothDataUpdateCoordinator[None]):
 
     async def _async_update(self, service_info: bluetooth.BluetoothServiceInfoBleak) -> None:
         """Poll the device and read all characteristic values."""
-        await self.device.update()
+        _LOGGER.debug(f"Polling device {self.device_name}")
         
         # Read all configured characteristics
         characteristics = self._get_characteristics()
+        if not characteristics:
+            _LOGGER.debug("No characteristics configured to poll")
+            return
+        
+        successful_reads = 0
+        failed_reads = 0
+        
         for characteristic in characteristics:
             target_uuid = characteristic.get(CONF_TARGET_UUID)
             char_name = characteristic.get(CONF_CHARACTERISTIC_NAME)
-            if target_uuid:
-                try:
-                    value = await self.device.read_gatt(target_uuid)
-                    if value is not None:
-                        # Store as hex string if bytes, otherwise as-is
-                        self._characteristic_values[target_uuid] = value.hex() if isinstance(value, (bytes, bytearray)) else value
-                        _LOGGER.debug(f"Read {char_name} ({target_uuid}): {self._characteristic_values[target_uuid]}")
-                    else:
-                        self._characteristic_values[target_uuid] = None
-                except Exception as err:  # pylint: disable=broad-except
-                    _LOGGER.debug(f"Error reading characteristic {char_name} ({target_uuid}): {err}")
+            if not target_uuid:
+                continue
+            
+            try:
+                value = await self.device.read_gatt(target_uuid)
+                if value is not None:
+                    # Store as hex string if bytes, otherwise as-is
+                    self._characteristic_values[target_uuid] = value.hex() if isinstance(value, (bytes, bytearray)) else str(value)
+                    _LOGGER.debug(f"Successfully read {char_name} ({target_uuid}): {self._characteristic_values[target_uuid]}")
+                    successful_reads += 1
+                else:
                     self._characteristic_values[target_uuid] = None
+                    failed_reads += 1
+            except Exception as err:  # pylint: disable=broad-except
+                _LOGGER.debug(f"Error reading characteristic {char_name} ({target_uuid}): {err}")
+                self._characteristic_values[target_uuid] = None
+                failed_reads += 1
+        
+        _LOGGER.debug(f"Polling complete: {successful_reads} successful, {failed_reads} failed")
 
     def get_characteristic_value(self, target_uuid: str) -> str | None:
         """Get the last read value for a characteristic."""

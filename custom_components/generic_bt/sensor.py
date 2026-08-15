@@ -22,6 +22,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     """Set up Generic BT sensor based on a config entry."""
     coordinator: GenericBTCoordinator = hass.data[DOMAIN][entry.entry_id]
     
+    # Trigger initial update to read characteristic values
+    await coordinator.async_request_refresh()
+    
     entities = []
     characteristics = entry.options.get(CONF_CHARACTERISTIC_READERS, [])
     
@@ -52,16 +55,22 @@ class GenericBTCharacteristicSensor(GenericBTEntity, SensorEntity):
         self._attr_name = name
         self._target_uuid = target_uuid
         self._attr_unique_id = f"{coordinator.base_unique_id}_{target_uuid}"
-        self._attr_available = True
 
     @property
     def native_value(self) -> Any:
         """Return the native value of the sensor."""
         return self.coordinator.get_characteristic_value(self._target_uuid)
 
+    @property
+    def available(self) -> bool:
+        """Return if entity is available."""
+        # Entity is available if coordinator is available and we have a value
+        return self.coordinator.last_update_success and self.native_value is not None
+
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
+        _LOGGER.debug(f"Coordinator update for {self._attr_name}: {self.native_value}")
         self.async_write_ha_state()
 
     async def async_added_to_hass(self) -> None:
@@ -70,8 +79,7 @@ class GenericBTCharacteristicSensor(GenericBTEntity, SensorEntity):
         self.async_on_remove(
             self.coordinator.async_add_listener(
                 self._handle_coordinator_update,
-                immediate=False,
+                immediate=True,
             )
         )
-
 
