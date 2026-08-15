@@ -37,6 +37,7 @@ class GenericBTBinarySensor(GenericBTEntity, BinarySensorEntity):
     def __init__(self, coordinator: GenericBTCoordinator) -> None:
         """Initialize the Device."""
         super().__init__(coordinator)
+        self._attr_unique_id = coordinator.base_unique_id
 
     @property
     def is_on(self):
