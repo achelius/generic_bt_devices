@@ -27,11 +27,13 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Generic BT."""
 
     VERSION = 1
-    
+
     @staticmethod
-    def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> OptionsFlow:
-        """Return options flow."""
-        return OptionsFlow(config_entry)
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> OptionsFlow:
+        """Return the options flow."""
+        return OptionsFlow()
 
     def __init__(self) -> None:
         """Initialize the config flow."""
@@ -155,11 +157,6 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 class OptionsFlow(config_entries.OptionsFlow):
     """Handle options flow for Generic BT integration."""
 
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        """Initialize options flow."""
-        self.config_entry = config_entry
-        self._selected_entity_index: int | None = None
-
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Handle the initial options step."""
         if user_input is not None:
@@ -226,7 +223,8 @@ class OptionsFlow(config_entries.OptionsFlow):
     async def async_step_select_entity_edit(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Handle selecting an entity to edit."""
         if user_input is not None:
-            self._selected_entity_index = user_input.get(CONF_ENTITY_INDEX)
+            index = int(user_input.get(CONF_ENTITY_INDEX, -1))
+            self.context["entity_index"] = index
             return await self.async_step_edit_entity()
 
         current_characteristics = self.config_entry.options.get(CONF_CHARACTERISTIC_READERS, [])
@@ -252,7 +250,7 @@ class OptionsFlow(config_entries.OptionsFlow):
         if user_input is not None:
             characteristics = list(self.config_entry.options.get(CONF_CHARACTERISTIC_READERS, []))
             
-            index = self._selected_entity_index
+            index = self.context.get("entity_index")
             if index is not None and 0 <= index < len(characteristics):
                 characteristics[index] = {
                     CONF_CHARACTERISTIC_NAME: user_input[CONF_CHARACTERISTIC_NAME],
@@ -265,7 +263,7 @@ class OptionsFlow(config_entries.OptionsFlow):
             )
 
         characteristics = self.config_entry.options.get(CONF_CHARACTERISTIC_READERS, [])
-        index = self._selected_entity_index
+        index = self.context.get("entity_index")
         
         if index is not None and 0 <= index < len(characteristics):
             current = characteristics[index]
