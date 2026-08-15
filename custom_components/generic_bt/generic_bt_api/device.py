@@ -43,6 +43,7 @@ class GenericBTDevice:
                     raise IdealLedBleakError("Error on connect") from exc
             else:
                 _LOGGER.debug("Connection reused")
+            return self._client
 
     async def write_gatt(self, target_uuid, data):
         await self.get_client()

@@ -1,0 +1,30 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Select Bluetooth Device",
+        "description": "Select the Bluetooth device you want to add"
+      },
+      "add_characteristic": {
+        "title": "Add Characteristic Reader",
+        "description": "Configure a characteristic reader for {device}.\n\nEnter the name for this characteristic and its UUID."
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the device",
+      "no_devices_found": "No Bluetooth devices found"
+    },
+    "abort": {
+      "already_configured": "Device is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Configure Characteristic Readers",
+        "description": "Current characteristics:\n{characteristics}\n\nAdd a new characteristic below (optional):"
+      }
+    }
+  }
+}
+

@@ -7,6 +7,9 @@ import homeassistant.helpers.config_validation as cv
 
 DOMAIN = "generic_bt"
 DEVICE_STARTUP_TIMEOUT_SECONDS = 30
+CONF_CHARACTERISTIC_READERS = "characteristic_readers"
+CONF_CHARACTERISTIC_NAME = "characteristic_name"
+CONF_TARGET_UUID = "target_uuid"
 
 class Schema(Enum):
     """General used service schema definition"""

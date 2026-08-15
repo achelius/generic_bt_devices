@@ -7,6 +7,7 @@ from homeassistant.components.bluetooth.passive_update_coordinator import Passiv
 from homeassistant.helpers import device_registry as dr
 
 from .coordinator import GenericBTCoordinator
+from .generic_bt_api.device import GenericBTDevice
 
 _LOGGER = logging.getLogger(__name__)
 
