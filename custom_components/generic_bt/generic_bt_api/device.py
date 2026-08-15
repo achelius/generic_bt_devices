@@ -3,7 +3,6 @@
 from uuid import UUID
 import asyncio
 import logging
-from contextlib import AsyncExitStack
 
 from bleak import BleakClient
 from bleak.exc import BleakError
@@ -17,7 +16,6 @@ class GenericBTDevice:
     def __init__(self, ble_device):
         self._ble_device = ble_device
         self._client: BleakClient | None = None
-        self._client_stack = AsyncExitStack()
         self._lock = asyncio.Lock()
 
     async def update(self):
@@ -26,8 +24,13 @@ class GenericBTDevice:
 
     async def stop(self):
         """Stop the device connection."""
-        await self._client_stack.aclose()
-        self._client = None
+        if self._client:
+            try:
+                await self._client.disconnect()
+            except Exception as err:  # pylint: disable=broad-except
+                _LOGGER.debug(f"Error disconnecting: {err}")
+            finally:
+                self._client = None
 
     @property
     def connected(self):
@@ -40,13 +43,11 @@ class GenericBTDevice:
             if not self._client:
                 _LOGGER.debug("Connecting to device with retry connector")
                 try:
-                    self._client = await self._client_stack.enter_async_context(
-                        establish_connection(
-                            BleakClient,
-                            device=self._ble_device,
-                            name=self._ble_device.name,
-                            timeout=30
-                        )
+                    self._client = await establish_connection(
+                        BleakClient,
+                        device=self._ble_device,
+                        name=self._ble_device.name,
+                        timeout=30
                     )
                     _LOGGER.debug("Successfully connected to device")
                 except asyncio.TimeoutError as exc:
