@@ -81,11 +81,18 @@ class GenericBTDevice:
 
     async def read_gatt(self, target_uuid):
         """Read data from a GATT characteristic."""
+        _LOGGER.debug(f"read_gatt called with uuid: {target_uuid}")
         client = await self.get_client()
         uuid = self._parse_uuid(target_uuid)
-        data = await client.read_gatt_char(uuid)
-        _LOGGER.debug(f"Read from {target_uuid}: {data.hex() if data else None}")
-        return data
+        _LOGGER.debug(f"Parsed UUID: {uuid}")
+        try:
+            data = await client.read_gatt_char(uuid)
+            hex_value = data.hex() if data else None
+            _LOGGER.debug(f"Successfully read from {target_uuid}: raw={data}, hex={hex_value}, type={type(data)}")
+            return data
+        except Exception as err:
+            _LOGGER.error(f"Failed to read characteristic {target_uuid}: {err}", exc_info=True)
+            raise
 
     def update_from_advertisement(self, advertisement):
         """Update device info from BLE advertisement."""

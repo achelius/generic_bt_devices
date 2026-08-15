@@ -51,30 +51,37 @@ class GenericBTCharacteristicSensor(GenericBTEntity, SensorEntity):
         super().__init__(coordinator)
         self._attr_name = name
         self._target_uuid = target_uuid
-        self._attr_unique_id = f"{coordinator.base_unique_id}_{target_uuid}"
+        # Include name in unique_id to prevent collisions when same UUID used multiple times
+        self._attr_unique_id = f"{coordinator.base_unique_id}_{name}_{target_uuid}".lower().replace(" ", "_")
+        _LOGGER.debug(f"Initializing sensor: name={name}, uuid={target_uuid}, unique_id={self._attr_unique_id}")
 
     @property
     def native_value(self) -> Any:
         """Return the native value of the sensor."""
-        return self.coordinator.get_characteristic_value(self._target_uuid)
+        value = self.coordinator.get_characteristic_value(self._target_uuid)
+        _LOGGER.debug(f"Getting native_value for {self._attr_name} ({self._target_uuid}): {value}")
+        return value
 
     @property
     def available(self) -> bool:
         """Return if entity is available."""
         # Entity is available if coordinator is ready (device is connected)
         # Value will be None initially but entity should still be available
-        return self.coordinator.last_update_success
+        available = self.coordinator.last_update_success
+        _LOGGER.debug(f"Checking availability for {self._attr_name}: {available} (last_update_success={self.coordinator.last_update_success})")
+        return available
 
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        _LOGGER.debug(f"Coordinator update for {self._attr_name}: {self.native_value}")
+        current_value = self.coordinator.get_characteristic_value(self._target_uuid)
+        _LOGGER.debug(f"Coordinator update for {self._attr_name}: value={current_value}")
         self.async_write_ha_state()
 
     async def async_added_to_hass(self) -> None:
         """Handle entity added to hass."""
         await super().async_added_to_hass()
-        _LOGGER.debug(f"Sensor {self._attr_name} ({self._target_uuid}) added to hass")
+        _LOGGER.debug(f"Sensor {self._attr_name} ({self._target_uuid}) added to hass, unique_id={self._attr_unique_id}")
         self.async_on_remove(
             self.coordinator.async_add_listener(
                 self._handle_coordinator_update,

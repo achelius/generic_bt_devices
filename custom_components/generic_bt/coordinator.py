@@ -55,35 +55,42 @@ class GenericBTCoordinator(ActiveBluetoothDataUpdateCoordinator[None]):
             _LOGGER.debug("No characteristics configured to poll")
             return
         
+        _LOGGER.debug(f"Found {len(characteristics)} characteristics to read")
         successful_reads = 0
         failed_reads = 0
         
-        for characteristic in characteristics:
+        for i, characteristic in enumerate(characteristics):
             target_uuid = characteristic.get(CONF_TARGET_UUID)
             char_name = characteristic.get(CONF_CHARACTERISTIC_NAME)
             if not target_uuid:
+                _LOGGER.warning(f"Characteristic {i} has no UUID")
                 continue
             
+            _LOGGER.debug(f"Reading characteristic {i}: {char_name} ({target_uuid})")
             try:
                 value = await self.device.read_gatt(target_uuid)
                 if value is not None:
                     # Store as hex string if bytes, otherwise as-is
-                    self._characteristic_values[target_uuid] = value.hex() if isinstance(value, (bytes, bytearray)) else str(value)
-                    _LOGGER.debug(f"Successfully read {char_name} ({target_uuid}): {self._characteristic_values[target_uuid]}")
+                    hex_value = value.hex() if isinstance(value, (bytes, bytearray)) else str(value)
+                    self._characteristic_values[target_uuid] = hex_value
+                    _LOGGER.info(f"✓ Successfully read {char_name} ({target_uuid}): {hex_value}")
                     successful_reads += 1
                 else:
                     self._characteristic_values[target_uuid] = None
+                    _LOGGER.warning(f"✗ Read returned None for {char_name} ({target_uuid})")
                     failed_reads += 1
             except Exception as err:  # pylint: disable=broad-except
-                _LOGGER.debug(f"Error reading characteristic {char_name} ({target_uuid}): {err}")
+                _LOGGER.error(f"✗ Error reading characteristic {char_name} ({target_uuid}): {err}", exc_info=True)
                 self._characteristic_values[target_uuid] = None
                 failed_reads += 1
         
-        _LOGGER.debug(f"Polling complete: {successful_reads} successful, {failed_reads} failed")
+        _LOGGER.info(f"Polling complete for {self.device_name}: {successful_reads} successful, {failed_reads} failed")
 
     def get_characteristic_value(self, target_uuid: str) -> str | None:
         """Get the last read value for a characteristic."""
-        return self._characteristic_values.get(target_uuid)
+        value = self._characteristic_values.get(target_uuid)
+        _LOGGER.debug(f"get_characteristic_value({target_uuid}): {value}")
+        return value
 
     @callback
     def _async_handle_unavailable(self, service_info: bluetooth.BluetoothServiceInfoBleak) -> None:
