@@ -8,7 +8,6 @@ from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN, CONF_CHARACTERISTIC_READERS, CONF_CHARACTERISTIC_NAME, CONF_TARGET_UUID
 from .coordinator import GenericBTCoordinator
@@ -53,13 +52,12 @@ class GenericBTCharacteristicSensor(GenericBTEntity, SensorEntity):
         self._attr_name = name
         self._target_uuid = target_uuid
         self._attr_unique_id = f"{coordinator.base_unique_id}_{target_uuid}"
-        self._attr_native_value = None
         self._attr_available = True
 
     @property
     def native_value(self) -> Any:
         """Return the native value of the sensor."""
-        return self._attr_native_value
+        return self.coordinator.get_characteristic_value(self._target_uuid)
 
     @callback
     def _handle_coordinator_update(self) -> None:
@@ -75,23 +73,5 @@ class GenericBTCharacteristicSensor(GenericBTEntity, SensorEntity):
                 immediate=False,
             )
         )
-        # Initial read
-        await self.async_update()
 
-    async def async_update(self) -> None:
-        """Fetch new state data for the sensor."""
-        try:
-            if not self.coordinator.device.connected:
-                self._attr_available = False
-                return
-            
-            value = await self.coordinator.device.read_gatt(self._target_uuid)
-            if value is not None:
-                self._attr_native_value = value.hex() if isinstance(value, (bytes, bytearray)) else value
-                self._attr_available = True
-            else:
-                self._attr_available = False
-        except Exception as err:  # pylint: disable=broad-except
-            _LOGGER.debug("Error reading characteristic %s: %s", self._target_uuid, err)
-            self._attr_available = False
 
