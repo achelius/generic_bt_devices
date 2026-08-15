@@ -61,8 +61,9 @@ class GenericBTCharacteristicSensor(GenericBTEntity, SensorEntity):
     @property
     def available(self) -> bool:
         """Return if entity is available."""
-        # Entity is available if coordinator is available and we have a value
-        return self.coordinator.last_update_success and self.native_value is not None
+        # Entity is available if coordinator is ready (device is connected)
+        # Value will be None initially but entity should still be available
+        return self.coordinator.last_update_success
 
     @callback
     def _handle_coordinator_update(self) -> None:
@@ -73,10 +74,12 @@ class GenericBTCharacteristicSensor(GenericBTEntity, SensorEntity):
     async def async_added_to_hass(self) -> None:
         """Handle entity added to hass."""
         await super().async_added_to_hass()
+        _LOGGER.debug(f"Sensor {self._attr_name} ({self._target_uuid}) added to hass")
         self.async_on_remove(
             self.coordinator.async_add_listener(
                 self._handle_coordinator_update,
                 immediate=True,
             )
         )
+        _LOGGER.debug(f"Initial value for {self._attr_name}: {self.native_value}")
 

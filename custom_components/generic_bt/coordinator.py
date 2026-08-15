@@ -45,7 +45,7 @@ class GenericBTCoordinator(ActiveBluetoothDataUpdateCoordinator[None]):
             return []
         return self.config_entry.options.get(CONF_CHARACTERISTIC_READERS, [])
 
-    async def _async_update(self, service_info: bluetooth.BluetoothServiceInfoBleak) -> None:
+    async def _async_update(self, service_info: bluetooth.BluetoothServiceInfoBleak | None = None) -> None:
         """Poll the device and read all characteristic values."""
         _LOGGER.debug(f"Polling device {self.device_name}")
         
@@ -110,5 +110,11 @@ class GenericBTCoordinator(ActiveBluetoothDataUpdateCoordinator[None]):
         with contextlib.suppress(asyncio.TimeoutError):
             async with asyncio.timeout(DEVICE_STARTUP_TIMEOUT_SECONDS):
                 await self._ready_event.wait()
+                # Trigger initial poll after device is ready
+                _LOGGER.debug(f"Device {self.device_name} is ready, triggering initial poll")
+                try:
+                    await self._async_update(None)
+                except Exception as err:  # pylint: disable=broad-except
+                    _LOGGER.debug(f"Error during initial poll: {err}")
                 return True
         return False
