@@ -39,7 +39,15 @@ class GateControllerCoordinator(DataUpdateCoordinator[dict]):
                 raw = await self._client.read_gatt_char(CHAR_BATTERY)
                 if raw:
                     battery_val = raw[0]
-                    _LOGGER.warning("Battery raw value: %s (0x%02x = %d%%)", raw.hex(), battery_val, battery_val)
+                    if len(raw) > 1:
+                        _LOGGER.warning(
+                            "Battery characteristic is %d bytes (expected 1), "
+                            "this may indicate an ESPHome BLE server issue. "
+                            "Raw: %s (using first byte: 0x%02x = %d%%)",
+                            len(raw), raw.hex(), battery_val, battery_val
+                        )
+                    else:
+                        _LOGGER.debug("Battery: 0x%02x = %d%%", battery_val, battery_val)
                     current["battery"] = battery_val
             except BleakError as err:
                 _LOGGER.debug("Could not read battery: %s", err)
@@ -47,7 +55,7 @@ class GateControllerCoordinator(DataUpdateCoordinator[dict]):
                 raw = await self._client.read_gatt_char(CHAR_WIFI_CONTROL)
                 if raw:
                     wifi_val = bool(raw[0])
-                    _LOGGER.warning("WiFi raw value: %s (0x%02x = %s)", raw.hex(), raw[0], "connected" if wifi_val else "disconnected")
+                    _LOGGER.debug("WiFi raw value: %s (0x%02x = %s)", raw.hex(), raw[0], "connected" if wifi_val else "disconnected")
                     current["wifi_connected"] = wifi_val
             except BleakError as err:
                 _LOGGER.debug("Could not read WiFi status: %s", err)
@@ -70,12 +78,13 @@ class GateControllerCoordinator(DataUpdateCoordinator[dict]):
                     )
                     return
                 # Use establish_connection from bleak_retry_connector for reliability
-                # It handles reconnection and retries automatically
+                # Force use_cached=False to prevent stale GATT handle cache after firmware updates
                 client = await establish_connection(
                     BleakClient,
                     device,
                     name=self.address,
                     disconnected_callback=self._on_disconnect,
+                    use_cached=False,
                 )
                 self._client = client
                 # Subscribe to notifications; fall back to polling if CCCD write is rejected
