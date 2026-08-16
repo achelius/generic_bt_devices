@@ -35,12 +35,24 @@ class GateControllerCoordinator(DataUpdateCoordinator[dict]):
         await self._ensure_connected()
         if self._client and self._client.is_connected:
             current = dict(self.data or {})
-            # Battery is updated exclusively via BLE notifications (start_notify in
-            # _ensure_connected). ESPHome's esp32_ble_server does not reliably serve
-            # GATT reads on static-value characteristics — the read response contains
-            # GATT metadata rather than the actual value, so we skip read_gatt_char here.
+            # Battery is primarily updated via BLE notifications (start_notify).
+            # Fall back to read_gatt_char only if no notification has arrived yet.
             if "battery" not in current:
-                _LOGGER.debug("Battery not yet received via notification; waiting for first notify")
+                try:
+                    raw = await self._client.read_gatt_char(CHAR_BATTERY)
+                    if raw:
+                        battery_val = int.from_bytes(raw, byteorder='little')
+                        if len(raw) != 1:
+                            _LOGGER.warning(
+                                "Battery characteristic returned %d bytes (expected 1). "
+                                "Raw: %s (converted to: %d%%)",
+                                len(raw), raw.hex(), battery_val,
+                            )
+                        else:
+                            _LOGGER.debug("Battery read fallback: %d%%", battery_val)
+                        current["battery"] = battery_val
+                except BleakError as err:
+                    _LOGGER.debug("Battery read fallback failed: %s", err)
             try:
                 raw = await self._client.read_gatt_char(CHAR_WIFI_CONTROL)
                 if raw:
