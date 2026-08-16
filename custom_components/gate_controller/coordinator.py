@@ -81,21 +81,25 @@ class GateControllerCoordinator(DataUpdateCoordinator[dict]):
                 # Subscribe to notifications; fall back to polling if CCCD write is rejected
                 try:
                     await client.start_notify(CHAR_BATTERY, self._on_battery_notify)
-                    _LOGGER.debug("Subscribed to battery notifications on %s", self.address)
+                    _LOGGER.warning(
+                        "Subscribed to battery notifications on %s — "
+                        "waiting for ESPHome to push first notify()",
+                        self.address,
+                    )
                 except BleakError as err:
-                    _LOGGER.debug(
-                        "Battery notifications unavailable on %s (will poll): %s",
+                    _LOGGER.warning(
+                        "Battery notifications unavailable on %s: %s",
                         self.address, err,
                     )
                 try:
                     await client.start_notify(CHAR_WIFI_CONTROL, self._on_wifi_status_notify)
-                    _LOGGER.debug("Subscribed to WiFi status notifications on %s", self.address)
+                    _LOGGER.warning("Subscribed to WiFi status notifications on %s", self.address)
                 except BleakError as err:
-                    _LOGGER.debug(
-                        "WiFi status notifications unavailable on %s (will poll): %s",
+                    _LOGGER.warning(
+                        "WiFi status notifications unavailable on %s: %s",
                         self.address, err,
                     )
-                _LOGGER.debug("Connected to %s", self.address)
+                _LOGGER.warning("Connected to %s", self.address)
             except BleakError as err:
                 _LOGGER.warning("Failed to connect to %s: %s", self.address, err)
 
