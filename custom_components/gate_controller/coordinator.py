@@ -10,7 +10,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import CHAR_BATTERY, CHAR_GATE_CONTROL, CHAR_WIFI_CONTROL, CHAR_WIFI_STATUS, DOMAIN
+from .const import CHAR_BATTERY, CHAR_GATE_CONTROL, CHAR_REBOOT, CHAR_WIFI_CONTROL, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -41,7 +41,7 @@ class GateControllerCoordinator(DataUpdateCoordinator[dict]):
             except BleakError as err:
                 _LOGGER.debug("Could not read battery: %s", err)
             try:
-                raw = await self._client.read_gatt_char(CHAR_WIFI_STATUS)
+                raw = await self._client.read_gatt_char(CHAR_WIFI_CONTROL)
                 if raw:
                     current["wifi_connected"] = bool(raw[0])
             except BleakError as err:
@@ -63,9 +63,8 @@ class GateControllerCoordinator(DataUpdateCoordinator[dict]):
                 client = BleakClient(device, disconnected_callback=self._on_disconnect)
                 await client.connect()
                 await client.start_notify(CHAR_BATTERY, self._on_battery_notify)
-                await client.start_notify(CHAR_WIFI_STATUS, self._on_wifi_status_notify)
                 self._client = client
-                _LOGGER.debug("Connected to %s and subscribed to battery and WiFi status notifications", self.address)
+                _LOGGER.debug("Connected to %s and subscribed to battery notifications", self.address)
             except BleakError as err:
                 _LOGGER.warning("Failed to connect to %s: %s", self.address, err)
 
@@ -79,13 +78,6 @@ class GateControllerCoordinator(DataUpdateCoordinator[dict]):
         if data:
             _LOGGER.debug("Battery notify: %d%%", data[0])
             self.async_set_updated_data({**(self.data or {}), "battery": data[0]})
-
-    @callback
-    def _on_wifi_status_notify(self, _sender, data: bytearray) -> None:
-        if data:
-            connected = bool(data[0])
-            _LOGGER.debug("WiFi status notify: %s", "connected" if connected else "disconnected")
-            self.async_set_updated_data({**(self.data or {}), "wifi_connected": connected})
 
     async def _write_characteristic(self, char_uuid: str, data: bytes) -> None:
         await self._ensure_connected()
@@ -106,6 +98,9 @@ class GateControllerCoordinator(DataUpdateCoordinator[dict]):
 
     async def async_disable_wifi(self) -> None:
         await self._write_characteristic(CHAR_WIFI_CONTROL, b"\x00")
+
+    async def async_reboot(self) -> None:
+        await self._write_characteristic(CHAR_REBOOT, b"\x01")
 
     async def async_disconnect(self) -> None:
         if self._client and self._client.is_connected:

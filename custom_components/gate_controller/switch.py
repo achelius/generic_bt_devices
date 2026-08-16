@@ -60,6 +60,8 @@ class WiFiSwitch(CoordinatorEntity[GateControllerCoordinator], SwitchEntity):
 
     async def async_turn_on(self, **kwargs) -> None:
         await self.coordinator.async_enable_wifi()
+        await self.coordinator.async_refresh()
 
     async def async_turn_off(self, **kwargs) -> None:
         await self.coordinator.async_disable_wifi()
+        await self.coordinator.async_refresh()

@@ -16,7 +16,10 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator: GateControllerCoordinator = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities([GateOpenButton(coordinator, entry)])
+    async_add_entities([
+        GateOpenButton(coordinator, entry),
+        RebootButton(coordinator, entry),
+    ])
 
 
 class _GateControllerButton(ButtonEntity):
@@ -48,3 +51,15 @@ class GateOpenButton(_GateControllerButton):
 
     async def async_press(self) -> None:
         await self._coordinator.async_open_gate()
+
+
+class RebootButton(_GateControllerButton):
+    _attr_name = "Reboot"
+    _attr_icon = "mdi:restart"
+
+    @property
+    def unique_id(self) -> str:
+        return f"{self._entry.data['address']}_reboot"
+
+    async def async_press(self) -> None:
+        await self._coordinator.async_reboot()
