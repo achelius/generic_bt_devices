@@ -39,7 +39,7 @@ class GateControllerCoordinator(DataUpdateCoordinator[dict]):
                 raw = await self._client.read_gatt_char(CHAR_BATTERY)
                 if raw:
                     battery_val = raw[0]
-                    _LOGGER.info("Battery raw value: %s (0x%02x = %d%%)", raw.hex(), battery_val, battery_val)
+                    _LOGGER.warning("Battery raw value: %s (0x%02x = %d%%)", raw.hex(), battery_val, battery_val)
                     current["battery"] = battery_val
             except BleakError as err:
                 _LOGGER.debug("Could not read battery: %s", err)
@@ -47,7 +47,7 @@ class GateControllerCoordinator(DataUpdateCoordinator[dict]):
                 raw = await self._client.read_gatt_char(CHAR_WIFI_CONTROL)
                 if raw:
                     wifi_val = bool(raw[0])
-                    _LOGGER.info("WiFi raw value: %s (0x%02x = %s)", raw.hex(), raw[0], "connected" if wifi_val else "disconnected")
+                    _LOGGER.warning("WiFi raw value: %s (0x%02x = %s)", raw.hex(), raw[0], "connected" if wifi_val else "disconnected")
                     current["wifi_connected"] = wifi_val
             except BleakError as err:
                 _LOGGER.debug("Could not read WiFi status: %s", err)
