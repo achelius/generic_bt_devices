@@ -59,6 +59,7 @@ class GateControllerCoordinator(DataUpdateCoordinator[dict]):
                 client = await establish_connection(
                     BleakClient,
                     self.address,
+                    name=self.address,
                     disconnected_callback=self._on_disconnect,
                 )
                 await client.start_notify(CHAR_BATTERY, self._on_battery_notify)
