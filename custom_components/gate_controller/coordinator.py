@@ -6,6 +6,7 @@ from datetime import timedelta
 
 from bleak import BleakClient, BleakError
 from bleak_retry_connector import establish_connection
+from homeassistant.components.bluetooth import async_ble_device_from_address
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -54,18 +55,31 @@ class GateControllerCoordinator(DataUpdateCoordinator[dict]):
             if self._client and self._client.is_connected:
                 return
             try:
+                # Get device from Bluetooth scanner if available
+                device = async_ble_device_from_address(
+                    self.hass, self.address, connectable=True
+                )
+                if not device:
+                    _LOGGER.debug(
+                        "Device %s not in scanner cache, cannot establish connection",
+                        self.address,
+                    )
+                    return
                 # Use establish_connection from bleak_retry_connector for reliability
                 # It handles reconnection and retries automatically
                 client = await establish_connection(
                     BleakClient,
-                    self.address,
+                    device,
                     name=self.address,
                     disconnected_callback=self._on_disconnect,
                 )
                 await client.start_notify(CHAR_BATTERY, self._on_battery_notify)
                 await client.start_notify(CHAR_WIFI_CONTROL, self._on_wifi_status_notify)
                 self._client = client
-                _LOGGER.debug("Connected to %s and subscribed to battery and WiFi status notifications", self.address)
+                _LOGGER.debug(
+                    "Connected to %s and subscribed to battery and WiFi status notifications",
+                    self.address,
+                )
             except BleakError as err:
                 _LOGGER.warning("Failed to connect to %s: %s", self.address, err)
 
