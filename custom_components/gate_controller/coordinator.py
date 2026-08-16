@@ -41,11 +41,11 @@ class GateControllerCoordinator(DataUpdateCoordinator[dict]):
                 try:
                     raw = await self._client.read_gatt_char(CHAR_BATTERY)
                     if raw:
-                        battery_val = int.from_bytes(raw, byteorder='little')
+                        battery_val = raw[0]  # always single byte (0-100%); extra bytes are GATT metadata
                         if len(raw) != 1:
                             _LOGGER.warning(
-                                "Battery characteristic returned %d bytes (expected 1). "
-                                "Raw: %s (converted to: %d%%)",
+                                "Battery characteristic returned %d bytes (expected 1); "
+                                "using first byte only. Raw: %s (%d%%)",
                                 len(raw), raw.hex(), battery_val,
                             )
                         else:
@@ -107,8 +107,8 @@ class GateControllerCoordinator(DataUpdateCoordinator[dict]):
                     await client.start_notify(CHAR_WIFI_CONTROL, self._on_wifi_status_notify)
                     _LOGGER.warning("Subscribed to WiFi status notifications on %s", self.address)
                 except BleakError as err:
-                    _LOGGER.warning(
-                        "WiFi status notifications unavailable on %s: %s",
+                    _LOGGER.debug(
+                        "WiFi status notifications unavailable on %s (polling instead): %s",
                         self.address, err,
                     )
                 _LOGGER.warning("Connected to %s", self.address)
