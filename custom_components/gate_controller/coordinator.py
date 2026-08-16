@@ -5,7 +5,7 @@ import logging
 from datetime import timedelta
 
 from bleak import BleakClient, BleakError
-from homeassistant.components.bluetooth import async_ble_device_from_address
+from bleak_retry_connector import establish_connection
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -53,15 +53,14 @@ class GateControllerCoordinator(DataUpdateCoordinator[dict]):
         async with self._lock:
             if self._client and self._client.is_connected:
                 return
-            device = async_ble_device_from_address(
-                self.hass, self.address, connectable=True
-            )
-            if not device:
-                _LOGGER.debug("Device %s not found in BLE scanner cache", self.address)
-                return
             try:
-                client = BleakClient(device, disconnected_callback=self._on_disconnect)
-                await client.connect()
+                # Use establish_connection from bleak_retry_connector for reliability
+                # It handles reconnection and retries automatically
+                client = await establish_connection(
+                    BleakClient,
+                    self.address,
+                    disconnected_callback=self._on_disconnect,
+                )
                 await client.start_notify(CHAR_BATTERY, self._on_battery_notify)
                 await client.start_notify(CHAR_WIFI_CONTROL, self._on_wifi_status_notify)
                 self._client = client
@@ -96,7 +95,19 @@ class GateControllerCoordinator(DataUpdateCoordinator[dict]):
         try:
             await self._client.write_gatt_char(char_uuid, data, response=False)
         except BleakError as err:
-            raise HomeAssistantError(f"BLE write failed: {err}") from err
+            # Retry once after reconnecting
+            _LOGGER.debug("Write to %s failed, attempting reconnect and retry: %s", self.address, err)
+            async with self._lock:
+                self._client = None
+            await self._ensure_connected()
+            if not (self._client and self._client.is_connected):
+                raise HomeAssistantError(
+                    f"Cannot reach Gate Controller at {self.address}: failed to reconnect"
+                ) from err
+            try:
+                await self._client.write_gatt_char(char_uuid, data, response=False)
+            except BleakError as retry_err:
+                raise HomeAssistantError(f"BLE write failed after retry: {retry_err}") from retry_err
 
     async def async_open_gate(self) -> None:
         await self._write_characteristic(CHAR_GATE_CONTROL, self.pin.encode())
