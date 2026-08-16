@@ -10,8 +10,7 @@
   ],
   "dependencies": [
     "bluetooth",
-    "bluetooth_adapters",
-    "bleak_retry_connector"
+    "bluetooth_adapters"
   ],
   "iot_class": "local_push",
   "integration_type": "device",
