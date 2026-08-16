@@ -35,22 +35,12 @@ class GateControllerCoordinator(DataUpdateCoordinator[dict]):
         await self._ensure_connected()
         if self._client and self._client.is_connected:
             current = dict(self.data or {})
-            try:
-                raw = await self._client.read_gatt_char(CHAR_BATTERY)
-                if raw:
-                    battery_val = raw[0]
-                    if len(raw) > 1:
-                        _LOGGER.warning(
-                            "Battery characteristic is %d bytes (expected 1), "
-                            "this may indicate an ESPHome BLE server issue. "
-                            "Raw: %s (using first byte: 0x%02x = %d%%)",
-                            len(raw), raw.hex(), battery_val, battery_val
-                        )
-                    else:
-                        _LOGGER.debug("Battery: 0x%02x = %d%%", battery_val, battery_val)
-                    current["battery"] = battery_val
-            except BleakError as err:
-                _LOGGER.debug("Could not read battery: %s", err)
+            # Battery is updated exclusively via BLE notifications (start_notify in
+            # _ensure_connected). ESPHome's esp32_ble_server does not reliably serve
+            # GATT reads on static-value characteristics — the read response contains
+            # GATT metadata rather than the actual value, so we skip read_gatt_char here.
+            if "battery" not in current:
+                _LOGGER.debug("Battery not yet received via notification; waiting for first notify")
             try:
                 raw = await self._client.read_gatt_char(CHAR_WIFI_CONTROL)
                 if raw:
@@ -117,8 +107,16 @@ class GateControllerCoordinator(DataUpdateCoordinator[dict]):
     @callback
     def _on_battery_notify(self, _sender, data: bytearray) -> None:
         if data:
-            _LOGGER.debug("Battery notify: %d%%", data[0])
-            self.async_set_updated_data({**(self.data or {}), "battery": data[0]})
+            if len(data) != 1:
+                _LOGGER.warning(
+                    "Battery characteristic returned %d bytes (expected 1). "
+                    "Raw: %s — ESPHome BLE server may not support GATT reads correctly; "
+                    "ensure the characteristic value uses a lambda and calls notify().",
+                    len(data), data.hex(),
+                )
+            battery_val = data[0]
+            _LOGGER.warning("Battery notify: %d%%", battery_val)
+            self.async_set_updated_data({**(self.data or {}), "battery": battery_val})
 
     @callback
     def _on_wifi_status_notify(self, _sender, data: bytearray) -> None:
