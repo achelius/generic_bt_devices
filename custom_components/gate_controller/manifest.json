@@ -1,0 +1,15 @@
+{
+  "domain": "gate_controller",
+  "name": "Gate Controller",
+  "codeowners": [],
+  "config_flow": true,
+  "bluetooth": [
+    {"service_uuid": "6e400001-b5a3-f393-e0a9-e50e24dcca9e"}
+  ],
+  "dependencies": ["bluetooth", "bluetooth_adapters"],
+  "iot_class": "local_push",
+  "integration_type": "device",
+  "version": "1.0.0",
+  "documentation": "https://github.com/achelius/generic_bt_devices",
+  "issue_tracker": "https://github.com/achelius/generic_bt_devices/issues"
+}

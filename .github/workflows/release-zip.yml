@@ -18,12 +18,12 @@ jobs:
 
       - name: Create component zip
         run: |
-          cd custom_components/generic_bt
-          zip -r ../../generic_bt.zip .
+          cd custom_components/gate_controller
+          zip -r ../../gate_controller.zip .
 
       - name: Create GitHub Release with zip
         uses: softprops/action-gh-release@v2
         with:
-          files: generic_bt.zip
+          files: gate_controller.zip
           generate_release_notes: true
           token: ${{ secrets.GITHUB_TOKEN }}

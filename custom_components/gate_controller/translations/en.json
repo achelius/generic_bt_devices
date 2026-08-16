@@ -1,0 +1,30 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set Up Gate Controller",
+        "description": "Select your RF Gate Controller from the list of discovered BLE devices.",
+        "data": {
+          "address": "Device",
+          "pin": "Gate PIN"
+        },
+        "data_description": {
+          "pin": "The PIN configured in your ESPHome device's gate_pin_text global variable."
+        }
+      },
+      "confirm": {
+        "title": "Confirm Gate Controller",
+        "description": "Set up **{name}**. Enter the PIN configured in the ESPHome device.",
+        "data": {
+          "pin": "Gate PIN"
+        }
+      }
+    },
+    "error": {
+      "no_devices_found": "No Gate Controller devices found nearby. Make sure the device is powered on and in range, then try again."
+    },
+    "abort": {
+      "already_configured": "This device is already configured."
+    }
+  }
+}
