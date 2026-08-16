@@ -88,11 +88,8 @@ class GateControllerCoordinator(DataUpdateCoordinator[dict]):
                 )
                 self._client = client
                 # Battery: skip notifications, always read fresh (bypasses ESPHome cache)
-                try:
-                    await client.start_notify(CHAR_BATTERY, self._on_battery_notify)
-                    _LOGGER.debug("Battery notifications subscribed (fallback if read fails)")
-                except BleakError as err:
-                    _LOGGER.debug("Battery notifications unavailable (will poll): %s", err)
+                # Do NOT subscribe to battery notifications — they are stale and would
+                # overwrite the fresh poll value. The coordinator reads every 120s instead.
                 try:
                     await client.start_notify(CHAR_WIFI_CONTROL, self._on_wifi_status_notify)
                     _LOGGER.warning("Subscribed to WiFi status notifications on %s", self.address)
