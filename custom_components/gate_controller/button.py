@@ -16,11 +16,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator: GateControllerCoordinator = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities([
-        GateOpenButton(coordinator, entry),
-        WiFiEnableButton(coordinator, entry),
-        WiFiDisableButton(coordinator, entry),
-    ])
+    async_add_entities([GateOpenButton(coordinator, entry)])
 
 
 class _GateControllerButton(ButtonEntity):
@@ -52,27 +48,3 @@ class GateOpenButton(_GateControllerButton):
 
     async def async_press(self) -> None:
         await self._coordinator.async_open_gate()
-
-
-class WiFiEnableButton(_GateControllerButton):
-    _attr_name = "Enable WiFi"
-    _attr_icon = "mdi:wifi"
-
-    @property
-    def unique_id(self) -> str:
-        return f"{self._entry.data['address']}_wifi_enable"
-
-    async def async_press(self) -> None:
-        await self._coordinator.async_enable_wifi()
-
-
-class WiFiDisableButton(_GateControllerButton):
-    _attr_name = "Disable WiFi"
-    _attr_icon = "mdi:wifi-off"
-
-    @property
-    def unique_id(self) -> str:
-        return f"{self._entry.data['address']}_wifi_disable"
-
-    async def async_press(self) -> None:
-        await self._coordinator.async_disable_wifi()

@@ -7,7 +7,7 @@ from homeassistant.core import HomeAssistant
 from .const import CONF_PIN, DEFAULT_PIN, DOMAIN
 from .coordinator import GateControllerCoordinator
 
-PLATFORMS = [Platform.BUTTON, Platform.SENSOR]
+PLATFORMS = [Platform.BUTTON, Platform.SENSOR, Platform.SWITCH]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

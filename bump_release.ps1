@@ -4,7 +4,7 @@ param(
 )
 
 # Path to manifest.json
-$manifestPath = "./custom_components/generic_bt/manifest.json"
+$manifestPath = "./custom_components/gate_controller/manifest.json"
 
 # Read manifest.json
 $manifest = Get-Content $manifestPath | ConvertFrom-Json
