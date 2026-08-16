@@ -15,7 +15,7 @@ from .const import CHAR_BATTERY, CHAR_GATE_CONTROL, CHAR_REBOOT, CHAR_WIFI_CONTR
 
 _LOGGER = logging.getLogger(__name__)
 
-POLL_INTERVAL = timedelta(seconds=600)
+POLL_INTERVAL = timedelta(seconds=120)
 
 
 class GateControllerCoordinator(DataUpdateCoordinator[dict]):
@@ -38,13 +38,17 @@ class GateControllerCoordinator(DataUpdateCoordinator[dict]):
             try:
                 raw = await self._client.read_gatt_char(CHAR_BATTERY)
                 if raw:
-                    current["battery"] = raw[0]
+                    battery_val = raw[0]
+                    _LOGGER.info("Battery raw value: %s (0x%02x = %d%%)", raw.hex(), battery_val, battery_val)
+                    current["battery"] = battery_val
             except BleakError as err:
                 _LOGGER.debug("Could not read battery: %s", err)
             try:
                 raw = await self._client.read_gatt_char(CHAR_WIFI_CONTROL)
                 if raw:
-                    current["wifi_connected"] = bool(raw[0])
+                    wifi_val = bool(raw[0])
+                    _LOGGER.info("WiFi raw value: %s (0x%02x = %s)", raw.hex(), raw[0], "connected" if wifi_val else "disconnected")
+                    current["wifi_connected"] = wifi_val
             except BleakError as err:
                 _LOGGER.debug("Could not read WiFi status: %s", err)
             return current
