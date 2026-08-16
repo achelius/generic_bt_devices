@@ -35,24 +35,21 @@ class GateControllerCoordinator(DataUpdateCoordinator[dict]):
         await self._ensure_connected()
         if self._client and self._client.is_connected:
             current = dict(self.data or {})
-            # Battery is primarily updated via BLE notifications (start_notify).
-            # Fall back to read_gatt_char only if no notification has arrived yet.
-            if "battery" not in current:
-                try:
-                    raw = await self._client.read_gatt_char(CHAR_BATTERY)
-                    if raw:
-                        battery_val = raw[0]  # always single byte (0-100%); extra bytes are GATT metadata
-                        if len(raw) != 1:
-                            _LOGGER.warning(
-                                "Battery characteristic returned %d bytes (expected 1); "
-                                "using first byte only. Raw: %s (%d%%)",
-                                len(raw), raw.hex(), battery_val,
-                            )
-                        else:
-                            _LOGGER.debug("Battery read fallback: %d%%", battery_val)
-                        current["battery"] = battery_val
-                except BleakError as err:
-                    _LOGGER.debug("Battery read fallback failed: %s", err)
+            # Read battery fresh every time (never rely on cached notifications)
+            # The test script shows read_gatt_char always returns the current value.
+            try:
+                raw = await self._client.read_gatt_char(CHAR_BATTERY)
+                if raw:
+                    battery_val = raw[0]  # always single byte (0-100%); extra bytes are GATT metadata
+                    if len(raw) != 1:
+                        _LOGGER.debug(
+                            "Battery characteristic returned %d bytes (using first byte only). "
+                            "Raw: %s (%d%%)",
+                            len(raw), raw.hex(), battery_val,
+                        )
+                    current["battery"] = battery_val
+            except BleakError as err:
+                _LOGGER.debug("Could not read battery: %s", err)
             try:
                 raw = await self._client.read_gatt_char(CHAR_WIFI_CONTROL)
                 if raw:
@@ -90,19 +87,12 @@ class GateControllerCoordinator(DataUpdateCoordinator[dict]):
                     use_services_cache=False,                    
                 )
                 self._client = client
-                # Subscribe to notifications; fall back to polling if CCCD write is rejected
+                # Battery: skip notifications, always read fresh (bypasses ESPHome cache)
                 try:
                     await client.start_notify(CHAR_BATTERY, self._on_battery_notify)
-                    _LOGGER.warning(
-                        "Subscribed to battery notifications on %s — "
-                        "waiting for ESPHome to push first notify()",
-                        self.address,
-                    )
+                    _LOGGER.debug("Battery notifications subscribed (fallback if read fails)")
                 except BleakError as err:
-                    _LOGGER.warning(
-                        "Battery notifications unavailable on %s: %s",
-                        self.address, err,
-                    )
+                    _LOGGER.debug("Battery notifications unavailable (will poll): %s", err)
                 try:
                     await client.start_notify(CHAR_WIFI_CONTROL, self._on_wifi_status_notify)
                     _LOGGER.warning("Subscribed to WiFi status notifications on %s", self.address)
