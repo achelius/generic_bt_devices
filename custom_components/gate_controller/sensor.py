@@ -22,6 +22,8 @@ async def async_setup_entry(
 ) -> None:
     coordinator: GateControllerCoordinator = hass.data[DOMAIN][entry.entry_id]
     async_add_entities([BatterySensor(coordinator, entry)])
+    # Force immediate refresh to bypass stale restored state
+    await coordinator.async_request_refresh()
 
 
 class BatterySensor(CoordinatorEntity[GateControllerCoordinator], SensorEntity):
