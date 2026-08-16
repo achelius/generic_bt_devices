@@ -78,13 +78,14 @@ class GateControllerCoordinator(DataUpdateCoordinator[dict]):
                     )
                     return
                 # Use establish_connection from bleak_retry_connector for reliability
-                # Force use_cached=False to prevent stale GATT handle cache after firmware updates
+                # use_services_cache=False forces fresh GATT discovery, preventing stale
+                # handle mappings after firmware updates
                 client = await establish_connection(
                     BleakClient,
                     device,
                     name=self.address,
                     disconnected_callback=self._on_disconnect,
-                    use_cached=False,
+                    use_services_cache=False,                    
                 )
                 self._client = client
                 # Subscribe to notifications; fall back to polling if CCCD write is rejected
